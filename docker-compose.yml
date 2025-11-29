@@ -1,10 +1,9 @@
-version: "3.9"
 services:
   backend:
     build: ./backend
     container_name: pothole-backend
     ports:
-      - "3000:3000"
+      - "3005:3005"
     depends_on:
       - db
     env_file:

@@ -5,22 +5,31 @@ services:
     ports:
       - "3005:3005"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - ./backend/.env
+    environment:
+      NODE_ENV: development
 
   db:
     image: mysql:8.0
     container_name: pothole-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: pothole
       MYSQL_DATABASE: pothole_db
       MYSQL_ROOT_HOST: '%'
     ports:
       - "3306:3306"
     volumes:
       - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppothole"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
 
 volumes:
   dbdata:

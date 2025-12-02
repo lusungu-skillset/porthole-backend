@@ -18,7 +18,7 @@ export class PotholesService {
       longitude: dto.longitude,
       description: dto.description,
       reporterName: dto.reporterName,
-      imageUrl: dto.imageUrl ?? null,
+      severity: dto.severity ?? 'LOW',
       status: 'Pending'
     });
     return this.repo.save(entry);
@@ -33,6 +33,7 @@ export class PotholesService {
     if (!pothole) {
       throw new NotFoundException('Pothole not found');
     }
+    if (dto.severity) pothole.severity = dto.severity;
     if (dto.status) pothole.status = dto.status;
     if (dto.description) pothole.description = dto.description;
     return this.repo.save(pothole);

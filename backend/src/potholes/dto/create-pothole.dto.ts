@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Length, Max, Min, IsIn } from 'class-validator';
 
 export class CreatePotholeDto {
   @IsNumber()
@@ -19,7 +19,7 @@ export class CreatePotholeDto {
   @Length(1, 120)
   reporterName!: string;
 
-  @IsOptional()
-  @IsString()
-  imageUrl?: string;
+  @IsIn(['LOW', 'MEDIUM', 'HIGH'])
+  severity!: 'LOW' | 'MEDIUM' | 'HIGH';
+
 }

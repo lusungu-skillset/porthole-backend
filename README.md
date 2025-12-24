@@ -331,6 +331,39 @@ docker-compose.yml                       # Root compose file (backend + MySQL)
 
 ## 🔧 Configuration
 
+## 🛰️ PostGIS Spatial Features (Important)
+
+- This backend expects a PostgreSQL database with the PostGIS extension enabled when using spatial features.
+- The service uses the following PostGIS functions:
+  - `ST_Distance` — to compute the distance between two geometries (we cast to `geography` for meter units).
+  - `ST_ClosestPoint` — to compute the closest point on another geometry (e.g., closest point on a road polyline to a pothole point).
+  - `ST_Intersects` — to test whether a pothole `geom` intersects (lies within/overlaps) a supplied geometry (useful for polygon queries).
+  - `ST_AsGeoJSON` — to convert stored `geom` into GeoJSON for easy consumption by the frontend.
+
+- For performance the backend attempts to create a GIST spatial index on the `potholes.geom` column (`idx_potholes_geom`) when the service starts.
+
+- Usage notes:
+  - When creating a pothole the frontend can either send `latitude`/`longitude` or a GeoJSON `geometry` object. If you send `contextGeometry` (GeoJSON), the backend will compute the closest point and distance and include them in the response.
+  - To use spatial endpoints you must run PostgreSQL with PostGIS; the current Docker Compose may need to be switched from MySQL to a Postgres+PostGIS image (e.g. `postgis/postgis`).
+
+Example SQL snippets used by the backend:
+
+```sql
+-- set geometry from GeoJSON
+UPDATE potholes SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) WHERE id = $2;
+
+-- compute closest point and distance (meters)
+SELECT
+  ST_AsGeoJSON(ST_ClosestPoint(p.geom, ST_SetSRID(ST_GeomFromGeoJSON($1),4326))) AS closest_point,
+  ST_Distance(p.geom::geography, ST_SetSRID(ST_GeomFromGeoJSON($1),4326)::geography) AS distance_m
+FROM potholes p WHERE p.id = $2;
+
+-- find potholes within a polygon
+SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson
+FROM potholes p
+WHERE ST_Intersects(p.geom, ST_SetSRID(ST_GeomFromGeoJSON($1),4326));
+```
+
 ### Environment Variables (`.env`)
 
 ```dotenv

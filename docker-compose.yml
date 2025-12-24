@@ -13,19 +13,20 @@ services:
       NODE_ENV: development
 
   db:
-    image: mysql:8.0
+    image: postgis/postgis:13-3.3
     container_name: pothole-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: pothole
-      MYSQL_DATABASE: pothole_db
-      MYSQL_ROOT_HOST: '%'
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pothole
+      POSTGRES_DB: pothole_db
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - dbdata:/var/lib/mysql
+      - dbdata:/var/lib/postgresql/data
+      - ./backend/db/init-postgis.sql:/docker-entrypoint-initdb.d/init-postgis.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppothole"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 10s
       retries: 20

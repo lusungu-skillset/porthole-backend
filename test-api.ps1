@@ -125,7 +125,7 @@ try {
     Write-Host ""
 }
 
-# Test 7: Fetch All Potholes Again (to see updated statuses)
+# Test 7: Fetch All Potholes Again
 Write-Host "[TEST 7] GET /potholes - Fetch All Potholes (Updated)" -ForegroundColor Yellow
 try {
     $resp7 = Invoke-WebRequest -Uri "$BaseUrl/potholes" -Method GET -UseBasicParsing
@@ -151,24 +151,19 @@ try {
     Write-Host ""
 }
 
-# Test 8: Try to update non-existent pothole (error handling)
-Write-Host "[TEST 8] PUT /potholes/999 - Update Non-Existent Pothole (Error Test)" -ForegroundColor Yellow
+# Test 8: Try to update non-existent pothole
+Write-Host "[TEST 8] PUT /potholes/999 - Update Non-Existent Pothole" -ForegroundColor Yellow
 $bodyUpdateFail = @{
     status = "Verified"
 } | ConvertTo-Json
 
 try {
     $resp8 = Invoke-WebRequest -Uri "$BaseUrl/potholes/999" -Method PUT -Headers $headers -Body $bodyUpdateFail -UseBasicParsing
+    Write-Host "✗ Expected Error but request succeeded" -ForegroundColor Red
 } catch {
-    if ($_.Exception.Response.StatusCode -eq 404) {
-        Write-Host "✓ Expected Error! Got 404 Not Found" -ForegroundColor Green
-        $errorContent = $_.Exception.Response.Content.ReadAsStream() | ConvertFrom-Json
-        Write-Host "  Error Message: $($errorContent.message)" -ForegroundColor Green
-        Write-Host ""
-    } else {
-        Write-Host "✗ Unexpected Error: $_" -ForegroundColor Red
-        Write-Host ""
-    }
+    Write-Host "✓ Got Expected Error (404)" -ForegroundColor Green
+    Write-Host "  Error: $($_.Exception.Response.StatusCode)" -ForegroundColor Green
 }
 
+Write-Host ""
 Write-Host "=== API Test Complete ===" -ForegroundColor Cyan

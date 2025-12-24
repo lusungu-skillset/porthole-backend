@@ -1,51 +1,55 @@
+import * as bcrypt from 'bcrypt';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Admin } from './admin.entity';
 import { AdminLoginDto } from './dto/admin-login.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(Admin)
-    private readonly adminRepo: Repository<Admin>
+    private readonly adminRepo: Repository<Admin>,
+    private readonly jwtService: JwtService
   ) {}
 
-  async login(dto: AdminLoginDto): Promise<{ token: string; admin: Admin }> {
-    const admin = await this.adminRepo.findOneBy({ email: dto.email });
+  async login(dto: AdminLoginDto) {
+    const admin = await this.adminRepo
+      .createQueryBuilder('admin')
+      .addSelect('admin.password')
+      .where('admin.email = :email', { email: dto.email })
+      .getOne();
 
     if (!admin) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Simple password comparison (in production, use bcrypt)
-    if (admin.password !== dto.password) {
+    const ok = await bcrypt.compare(dto.password, (admin as any).password);
+    if (!ok) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Generate a simple token (in production, use JWT)
-    const token = Buffer.from(`${admin.id}:${admin.email}`).toString('base64');
+    const payload = { sub: admin.id, email: admin.email, role: 'ADMIN' };
+    const token = this.jwtService.sign(payload);
 
     const { password, ...adminData } = admin;
 
-    return {
-      token,
-      admin: adminData as unknown as Admin
-    };
+    return { token, admin: adminData };
   }
 
-  async validateToken(token: string): Promise<Admin | null> {
+  // Used by guards to validate JWT
+  async validateJwtPayload(payload: any) {
+    const admin = await this.adminRepo.findOne({ where: { id: payload.sub } });
+    return admin || null;
+  }
+
+  // Verify a raw token and return the admin (used by guards expecting token input)
+  async validateToken(token: string) {
     try {
-      const decoded = Buffer.from(token, 'base64').toString('utf-8');
-      const [adminId] = decoded.split(':');
-      const id = parseInt(adminId, 10);
-      if (isNaN(id)) {
-        return null;
-      }
-      const admin = await this.adminRepo.findOne({ where: { id } });
-      return admin || null;
-    } catch (error) {
-      console.error('Token validation error:', error);
+      const payload = this.jwtService.verify(token);
+      return await this.validateJwtPayload(payload);
+    } catch (err) {
       return null;
     }
   }

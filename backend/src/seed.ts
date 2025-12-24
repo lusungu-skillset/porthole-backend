@@ -1,42 +1,69 @@
-import 'reflect-metadata';
-import { NestFactory } from '@nestjs/core';
+import * as bcrypt from 'bcrypt';
+import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
-import { AppModule } from './app.module';
 import { Admin } from './auth/admin.entity';
 
-async function seed() {
-  const app = await NestFactory.create(AppModule);
-  const dataSource = app.get(DataSource);
-  const adminRepo = dataSource.getRepository(Admin);
 
-  const admins = [
-    {
-      email: 'admin1@potholereporter.com',
-      password: 'AdminPassword123!'
-    },
-    {
-      email: 'admin2@potholereporter.com',
-      password: 'AdminPassword456!'
-    }
-  ];
+dotenv.config();
 
-  try {
-    for (const adminData of admins) {
-      const existing = await adminRepo.findOneBy({ email: adminData.email });
-      if (!existing) {
-        const admin = adminRepo.create(adminData);
-        await adminRepo.save(admin);
-        console.log(`✓ Created admin: ${adminData.email}`);
-      } else {
-        console.log(`✓ Admin already exists: ${adminData.email}`);
-      }
-    }
-    console.log('Database seeding complete!');
-  } catch (error) {
-    console.error('Error during seeding:', error);
-  } finally {
-    await app.close();
+
+export async function seedAdmin(dataSource: DataSource) {
+  const repo = dataSource.getRepository(Admin);
+
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    throw new Error('Missing ADMIN_EMAIL or ADMIN_PASSWORD in .env');
   }
+
+  const exists = await repo.findOne({ where: { email } });
+  if (exists) {
+    console.log('✅ Admin already exists. Seed skipped.');
+    return;
+  }
+
+  const hashed = await bcrypt.hash(password, 12);
+
+  const admin = repo.create({ email, password: hashed });
+  await repo.save(admin);
+
+  console.log('✅ Admin seeded securely:', email);
 }
 
-seed();
+// If run directly, create a DataSource and execute the seeding
+if (require.main === module) {
+  (async () => {
+    const DB_PORT = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432;
+
+    const dataSource = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: DB_PORT,
+      username: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASS || 'pothole',
+      database: process.env.DB_NAME || 'pothole_db',
+      entities: [Admin],
+      synchronize: true,
+    });
+
+    try {
+      console.log('➡️ Initializing database connection...');
+      await dataSource.initialize();
+      console.log('➡️ Running admin seed...');
+      await seedAdmin(dataSource);
+      console.log('✅ Seeding complete');
+    } catch (err) {
+      console.error('❌ Seed failed:');
+      console.error(err && (err as any).stack ? (err as any).stack : err);
+      console.error('\nTip: verify your database is running and DB env vars (DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME) are set.');
+      process.exitCode = 1;
+    } finally {
+      try {
+        await dataSource.destroy();
+      } catch (e) {
+     
+      }
+    }
+  })();
+}

@@ -1,495 +1,245 @@
-# Pothole Reporter Backend
 
-A NestJS + TypeORM backend API for the Pothole Reporter school project. Reports pothole locations with status tracking (Pending → Verified → Fixed), stores data in MySQL, and serves endpoints for frontend consumption.
+# 🕳️ Pothole Reporter Backend (Spatial API)
 
-## 🚀 Quick Start
+A **production-oriented backend API** built with **NestJS** for reporting, managing, and visualizing potholes using **geospatial data**.
+This is a **personal project**, designed to demonstrate **backend engineering, spatial databases, and real-world civic technology use cases**.
 
-### Prerequisites
+The system allows the public to report potholes and enables administrators to **view exact pothole locations on Google Maps**, manage report status, and prioritize repairs using spatial queries.
 
-- **Docker Desktop** (running)
-- **Node.js** 18+ (for local dev, optional if using Docker)
+---
 
-### Local Development with Docker
+## 📌 Project Overview
 
-```bash
-cd porthole-backend
+The Pothole Reporter Backend provides:
 
-# Build and start all services (backend + MySQL)
-docker compose up --build -d
+* Public pothole reporting with precise geographic coordinates
+* Administrative review and status tracking
+* Spatial querying using **PostGIS**
+* Google Maps–ready location data for accurate visualization
+* Secure admin authentication
 
-# View logs
-docker compose logs -f backend
+The API is frontend-agnostic and can be consumed by any web or mobile client.
+
+---
+
+## 🗺️ Key Spatial Capabilities (PostGIS)
+
+This backend uses **PostgreSQL with PostGIS** to handle geospatial data efficiently.
+
+### Spatial Features:
+
+* Store pothole locations as `POINT` geometries
+* Convert spatial data to **GeoJSON** for Google Maps
+* Calculate distances between potholes and other geometries
+* Query potholes inside areas or regions
+
+Admins can visually inspect potholes on **Google Maps** to:
+
+* Identify exact locations
+* Verify reports
+* Plan maintenance efficiently
+
+---
+
+## 🏗️ System Architecture
+
 ```
-
-The backend will be available at **http://localhost:3005**
-
-Database runs on **localhost:3306** with credentials:
-- User: `root`
-- Password: `pothole`
-- Database: `pothole_db`
-
-### Stopping Services
-
-```bash
-docker compose down       # Stop containers
-docker compose down -v    # Stop containers + remove volumes
+Client (Web / Google Maps / Postman)
+        ↓
+REST API (NestJS)
+        ↓
+Authentication Layer (JWT)
+        ↓
+PostgreSQL + PostGIS
 ```
 
 ---
 
-## 📋 API Endpoints
+## ✨ Core Features
 
-### Base URL
+### 📝 Public Pothole Reporting
+
+* Report potholes with:
+
+  * Latitude & Longitude
+  * Description
+  * Severity level
+  * Reporter name
+* No authentication required
+
+---
+
+### 🛠️ Admin Management
+
+* Secure admin login
+* Update pothole status:
+
+  * Pending
+  * In Progress
+  * Fixed
+* Modify severity or description
+* View all potholes with spatial data
+
+---
+
+### 🗺️ Map Integration (Google Maps)
+
+* Backend exposes coordinates in **GeoJSON**
+* Frontend can directly plot potholes on Google Maps
+* Exact positioning using PostGIS geometry data
+
+---
+
+## 🛠️ Technology Stack
+
+### Backend
+
+* **Framework:** NestJS
+* **Language:** TypeScript
+* **ORM:** TypeORM
+* **Authentication:** JWT
+
+### Database & Spatial
+
+* **Database:** PostgreSQL
+* **Spatial Extension:** PostGIS
+* **Indexes:** GIST (for performance)
+
+### DevOps
+
+* **Containerization:** Docker
+* **Local Orchestration:** Docker Compose
+
+### Tooling
+
+* **API Testing:** Postman, cURL
+* **Maps Integration:** Google Maps API
+* **Version Control:** Git & GitHub
+
+---
+
+## 🚀 Getting Started (Development)
+
+### Prerequisites
+
+* Docker & Docker Compose
+* Node.js 18+
+* Git
+
+---
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/<your-username>/pothole-reporter-backend.git
+cd pothole-reporter-backend
+```
+
+---
+
+### Run with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Backend will be available at:
+
 ```
 http://localhost:3005
 ```
 
-### 1. POST /potholes — Create a Pothole Report
-
-**Create a new pothole report (public endpoint).**
-
-**Request:**
-```bash
-curl -X POST http://localhost:3005/potholes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "latitude": -15.3875,
-    "longitude": 28.3228,
-    "description": "Large pothole by the intersection causing damage to vehicles",
-    "reporterName": "Alice Smith",
-    "severity": "HIGH"
-  }'
-```
-
-**Request Body:**
-| Field | Type | Required | Constraints |
-|-------|------|----------|-------------|
-| `latitude` | number | Yes | -90 to 90 |
-| `longitude` | number | Yes | -180 to 180 |
-| `description` | string | Yes | 5-2000 characters |
-| `reporterName` | string | Yes | 1-120 characters |
-| `severity` | string | Yes | `"LOW"`, `"MEDIUM"`, `"HIGH"` |
-
-**Response (201 Created):**
-```json
-{
-  "id": 1,
-  "latitude": -15.3875,
-  "longitude": 28.3228,
-  "description": "Large pothole by the intersection causing damage to vehicles",
-  "reporterName": "Alice Smith",
-  "severity": "HIGH",
-  "status": "Pending",
-  "reportedAt": "2025-11-30T11:06:00.000Z"
-}
-```
-
-**Error (400 Bad Request):**
-```json
-{
-  "statusCode": 400,
-  "message": ["description must be longer than or equal to 5 characters"],
-  "error": "Bad Request"
-}
-```
-
 ---
 
-### 2. GET /potholes — Fetch All Potholes
+## 🔐 Authentication (Admin)
 
-**Retrieve all pothole reports (latest first).**
+### Admin Login
 
-**Request:**
 ```bash
-curl -X GET http://localhost:3005/potholes \
-  -H "Content-Type: application/json"
+POST /auth/login
 ```
 
-**Response (200 OK):**
-```json
-[
-  {
-    "id": 1,
-    "latitude": -15.3875,
-    "longitude": 28.3228,
-    "description": "Large pothole by the intersection",
-    "reporterName": "Alice Smith",
-    "severity": "HIGH",
-    "status": "Pending",
-    "reportedAt": "2025-11-30T11:06:00.000Z"
-  },
-  {
-    "id": 2,
-    "latitude": -15.4,
-    "longitude": 28.35,
-    "description": "Small crack near the junction",
-    "reporterName": "Bob Jones",
-    "severity": "LOW",
-    "status": "In Progress",
-    "reportedAt": "2025-11-30T11:05:30.000Z"
-  }
-]
-```
-
-**Empty Result:**
-```json
-[]
-```
-
----
-
-### 3. PUT /potholes/:id — Update Pothole Status (Admin Only)
-
-**Update the status or severity of a pothole (admin action - requires token).**
-
-**Request:**
-```bash
-curl -X PUT http://localhost:3005/potholes/1 \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <admin_token>" \
-  -d '{
-    "status": "In Progress"
-  }'
-```
-
-**Request Body (all optional):**
-| Field | Type | Options |
-|-------|------|---------|
-| `status` | string | `"Pending"`, `"In Progress"`, `"Fixed"` |
-| `severity` | string | `"LOW"`, `"MEDIUM"`, `"HIGH"` |
-| `description` | string | Any string (for updates) |
-
-**Response (200 OK):**
-```json
-{
-  "id": 1,
-  "latitude": -15.3875,
-  "longitude": 28.3228,
-  "description": "Large pothole by the intersection",
-  "reporterName": "Alice Smith",
-  "severity": "HIGH",
-  "status": "In Progress",
-  "reportedAt": "2025-11-30T11:06:00.000Z"
-}
-```
-
-**Error (401 Unauthorized - No token):**
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
-
-**Error (404 Not Found):**
-```json
-{
-  "statusCode": 404,
-  "message": "Pothole not found",
-  "error": "Not Found"
-}
-```
-
----
-
-## 🔐 Admin Authentication
-
-### 1. POST /auth/login — Admin Login
-
-**Login with admin credentials to get auth token.**
-
-**Request:**
 ```bash
 curl -X POST http://localhost:3005/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin1@potholereporter.com",
-    "password": "AdminPassword123!"
-  }'
+-H "Content-Type: application/json" \
+-d '{
+  "email": "admin@example.com",
+  "password": "AdminPassword123!"
+}'
 ```
 
-**Request Body:**
-| Field | Type | Required |
-|-------|------|----------|
-| `email` | string | Yes |
-| `password` | string | Yes |
-
-**Response (201 Created):**
-```json
-{
-  "token": "YWRtaW4xQHBvdGhvbGVyZXBvcnRlci5jb206QWRtaW5QYXNzd29yZDEyMyE=",
-  "admin": {
-    "id": 1,
-    "email": "admin1@potholereporter.com"
-  }
-}
-```
-
-**Error (401 Unauthorized - Invalid credentials):**
-```json
-{
-  "statusCode": 401,
-  "message": "Invalid email or password"
-}
-```
-
-### 2. GET /auth/verify — Verify Admin Token
-
-**Verify if a token is valid.**
-
-**Request:**
-```bash
-curl -X GET http://localhost:3005/auth/verify \
-  -H "Authorization: Bearer YWRtaW4xQHBvdGhvbGVyZXBvcnRlci5jb206QWRtaW5QYXNzd29yZDEyMyE="
-```
-
-**Response (200 OK - Valid Token):**
-```json
-{
-  "valid": true,
-  "admin": {
-    "id": 1,
-    "email": "admin1@potholereporter.com"
-  }
-}
-```
-
-**Error (401 Unauthorized - Invalid token):**
-```json
-{
-  "statusCode": 401,
-  "message": "Invalid token"
-}
-```
-
-### Seeding Admin Accounts
-
-Admin accounts must be seeded before using the login endpoint:
-
-```bash
-docker compose exec backend npm run seed
-```
-
-This creates two default admin accounts:
-- Email: `admin1@potholereporter.com` | Password: `AdminPassword123!`
-- Email: `admin2@potholereporter.com` | Password: `AdminPassword456!`
+Returns a JWT token required for admin-only endpoints.
 
 ---
 
-## 🗂️ Project Structure
+## 📡 API Endpoints (Summary)
 
+### Create Pothole (Public)
+
+```http
+POST /potholes
 ```
-backend/
-├── src/
-│   ├── main.ts                          # NestJS bootstrap entry point
-│   ├── app.module.ts                    # Root module with TypeORM config
-│   ├── potholes/
-│   │   ├── potholes.controller.ts       # API endpoints (routes)
-│   │   ├── potholes.service.ts          # Business logic
-│   │   ├── potholes.module.ts           # Feature module
-│   │   ├── pothole.entity.ts            # TypeORM entity (DB model)
-│   │   └── dto/
-│   │       ├── create-pothole.dto.ts    # POST validation
-│   │       └── update-pothole.dto.ts    # PUT validation
-│   └── ...
-├── Dockerfile                           # Container image definition
-├── docker-compose.yml                   # Multi-container orchestration
-├── package.json                         # Dependencies & scripts
-├── tsconfig.json                        # TypeScript configuration
-└── .env                                 # Environment variables
 
-docker-compose.yml                       # Root compose file (backend + MySQL)
-.gitignore                               # Git ignore rules
+### Get All Potholes
+
+```http
+GET /potholes
+```
+
+### Update Pothole Status (Admin)
+
+```http
+PUT /potholes/:id
+```
+
+### Verify Admin Token
+
+```http
+GET /auth/verify
 ```
 
 ---
 
-## 🗄️ Database Schema
+## 🗄️ Database Design (Simplified)
 
 ### `potholes` Table
 
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| `latitude` | DOUBLE | NOT NULL | Y-coordinate (-90 to 90) |
-| `longitude` | DOUBLE | NOT NULL | X-coordinate (-180 to 180) |
-| `description` | TEXT | NOT NULL | Details about the pothole |
-| `severity` | VARCHAR(10) | NOT NULL, DEFAULT 'LOW' | `LOW`, `MEDIUM`, or `HIGH` |
-| `status` | VARCHAR(20) | NOT NULL, DEFAULT 'Pending' | `Pending`, `In Progress`, or `Fixed` |
-| `reporterName` | VARCHAR(120) | NOT NULL | Name of the person reporting |
-| `reportedAt` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | When report was created |
+| Column       | Type                  | Description                   |
+| ------------ | --------------------- | ----------------------------- |
+| id           | SERIAL                | Primary key                   |
+| geom         | GEOMETRY(Point, 4326) | Spatial location              |
+| description  | TEXT                  | Pothole details               |
+| severity     | VARCHAR               | LOW / MEDIUM / HIGH           |
+| status       | VARCHAR               | Pending / In Progress / Fixed |
+| reporterName | VARCHAR               | Reporter name                 |
+| reportedAt   | TIMESTAMP             | Report time                   |
 
-### `admin` Table
-
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | INT | PRIMARY KEY, AUTO_INCREMENT | Unique identifier |
-| `email` | VARCHAR(255) | UNIQUE, NOT NULL | Admin email address |
-| `password` | VARCHAR(255) | NOT NULL | Admin password (stored as plain text in dev) |
+A **GIST index** is applied on `geom` for fast spatial queries.
 
 ---
 
-## 🔧 Configuration
+## 🛰️ PostGIS Functions Used
 
-## 🛰️ PostGIS Spatial Features (Important)
+* `ST_SetSRID`
+* `ST_GeomFromGeoJSON`
+* `ST_AsGeoJSON`
+* `ST_Distance`
+* `ST_Intersects`
+* `ST_ClosestPoint`
 
-- This backend expects a PostgreSQL database with the PostGIS extension enabled when using spatial features.
-- The service uses the following PostGIS functions:
-  - `ST_Distance` — to compute the distance between two geometries (we cast to `geography` for meter units).
-  - `ST_ClosestPoint` — to compute the closest point on another geometry (e.g., closest point on a road polyline to a pothole point).
-  - `ST_Intersects` — to test whether a pothole `geom` intersects (lies within/overlaps) a supplied geometry (useful for polygon queries).
-  - `ST_AsGeoJSON` — to convert stored `geom` into GeoJSON for easy consumption by the frontend.
-
-- For performance the backend attempts to create a GIST spatial index on the `potholes.geom` column (`idx_potholes_geom`) when the service starts.
-
-- Usage notes:
-  - When creating a pothole the frontend can either send `latitude`/`longitude` or a GeoJSON `geometry` object. If you send `contextGeometry` (GeoJSON), the backend will compute the closest point and distance and include them in the response.
-  - To use spatial endpoints you must run PostgreSQL with PostGIS; the current Docker Compose may need to be switched from MySQL to a Postgres+PostGIS image (e.g. `postgis/postgis`).
-
-Example SQL snippets used by the backend:
-
-```sql
--- set geometry from GeoJSON
-UPDATE potholes SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) WHERE id = $2;
-
--- compute closest point and distance (meters)
-SELECT
-  ST_AsGeoJSON(ST_ClosestPoint(p.geom, ST_SetSRID(ST_GeomFromGeoJSON($1),4326))) AS closest_point,
-  ST_Distance(p.geom::geography, ST_SetSRID(ST_GeomFromGeoJSON($1),4326)::geography) AS distance_m
-FROM potholes p WHERE p.id = $2;
-
--- find potholes within a polygon
-SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson
-FROM potholes p
-WHERE ST_Intersects(p.geom, ST_SetSRID(ST_GeomFromGeoJSON($1),4326));
-```
-
-### Environment Variables (`.env`)
-
-```dotenv
-DB_HOST=db                  # MySQL container hostname
-DB_PORT=3306                # MySQL port
-DB_USER=root                # MySQL user
-DB_PASS=pothole             # MySQL password
-DB_NAME=pothole_db          # Database name
-PORT=3005                   # Backend port
-```
-
-### Docker Compose Services
-
-- **backend**: NestJS API on port 3005
-- **db**: MySQL 8.0 on port 3306
-- **dbdata**: Persistent volume for database
-
----
-
-## 💻 Local Development (Without Docker)
-
-### 1. Install Dependencies
-```bash
-cd backend
-npm install
-```
-
-### 2. Set Up MySQL
-
-Ensure MySQL is running locally on port 3306 with:
-- User: `root`
-- Password: `pothole`
-- Database: `pothole_db`
-
-Update `.env` if using different credentials:
-```dotenv
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASS=pothole
-DB_NAME=pothole_db
-```
-
-### 3. Start the Dev Server
-```bash
-npm run start:dev
-```
-
-Backend will run on http://localhost:3005
-
-### 4. Type-Check
-```bash
-npx tsc --noEmit
-```
-
----
-
-## 🏗️ Build for Production
-
-```bash
-# Build the TypeScript
-npm run build
-
-# Start production server
-npm run start:prod
-```
+These functions allow accurate distance calculation, map rendering, and spatial filtering.
 
 ---
 
 ## 🧪 Testing the API
 
-### Step 1: Seed Admin Accounts
+All endpoints can be tested using:
 
-```bash
-docker compose exec backend npm run seed
-```
+* **Postman**
+* **cURL**
+* **PowerShell**
 
-Expected output:
-```
-✓ Created admin: admin1@potholereporter.com
-✓ Created admin: admin2@potholereporter.com
-Database seeding complete!
-```
-
-### Step 2: Login as Admin
-
-```bash
-curl -X POST http://localhost:3005/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin1@potholereporter.com","password":"AdminPassword123!"}'
-```
-
-Response:
-```json
-{
-  "token": "YWRtaW4xQHBvdGhvbGVyZXBvcnRlci5jb206QWRtaW5QYXNzd29yZDEyMyE=",
-  "admin": {"id": 1, "email": "admin1@potholereporter.com"}
-}
-```
-
-### Step 3: Create a Pothole Report
-
-```bash
-curl -X POST http://localhost:3005/potholes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "latitude": -15.3875,
-    "longitude": 28.3228,
-    "description": "Large pothole near intersection",
-    "reporterName": "Alice",
-    "severity": "HIGH"
-  }'
-```
-
-Response includes `id` (example: 1, use for next step).
-
-### Step 4: Update Pothole Status (Admin Only)
-
-```bash
-curl -X PUT http://localhost:3005/potholes/1 \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YWRtaW4xQHBvdGhvbGVyZXBvcnRlci5jb206QWRtaW5QYXNzd29yZDEyMyE=" \
-  -d '{"status":"In Progress"}'
-```
-
-### Step 5: Fetch All Potholes
+Example:
 
 ```bash
 curl http://localhost:3005/potholes
@@ -497,96 +247,46 @@ curl http://localhost:3005/potholes
 
 ---
 
-### Using PowerShell
+## 📂 Project Structure
 
-**Create a pothole:**
-```powershell
-$headers = @{ 'Content-Type' = 'application/json' }
-$body = @{
-    latitude = -15.3875
-    longitude = 28.3228
-    description = "Large pothole near intersection"
-    reporterName = "Alice"
-    severity = "HIGH"
-} | ConvertTo-Json
-
-Invoke-WebRequest -Uri "http://localhost:3005/potholes" `
-  -Method POST `
-  -Headers $headers `
-  -Body $body
 ```
-
-**Login as admin:**
-```powershell
-$headers = @{ 'Content-Type' = 'application/json' }
-$body = @{
-    email = "admin1@potholereporter.com"
-    password = "AdminPassword123!"
-} | ConvertTo-Json
-
-Invoke-WebRequest -Uri "http://localhost:3005/auth/login" `
-  -Method POST `
-  -Headers $headers `
-  -Body $body
-```
-
-**Update pothole status (with token):**
-```powershell
-$headers = @{ 
-    'Content-Type' = 'application/json'
-    'Authorization' = 'Bearer YOUR_TOKEN_HERE'
-}
-$body = @{ status = "In Progress" } | ConvertTo-Json
-
-Invoke-WebRequest -Uri "http://localhost:3005/potholes/1" `
-  -Method PUT `
-  -Headers $headers `
-  -Body $body
-```
-
-**Fetch all potholes:**
-```powershell
-Invoke-WebRequest -Uri "http://localhost:3005/potholes" -Method GET
+src/
+│── auth/
+│── potholes/
+│── database/
+│── main.ts
+Dockerfile
+docker-compose.yml
+README.md
 ```
 
 ---
 
-## 🐛 Troubleshooting
+## 🔮 Future Enhancements
 
-### "Unable to connect to the database"
-- Ensure MySQL container is running: `docker compose ps`
-- Check MySQL is healthy: `docker compose logs db`
-- Verify `.env` password matches `docker-compose.yml` `MYSQL_ROOT_PASSWORD`
-
-### "Port 3005 already in use"
-- Kill the process: `lsof -i :3005` (Mac/Linux) or `netstat -ano | findstr :3005` (Windows)
-- Or change `PORT` in `.env` and update docker-compose.yml
-
-### "Cannot find module"
-- Run `npm install` in the backend folder
-- Restart your TypeScript server
+* Role-based access control (RBAC)
+* Nearest-road matching using OSM data
+* Heatmaps for pothole density
+* Cloud deployment (AWS + Kubernetes)
+* Public reporting analytics dashboard
 
 ---
 
-## 📚 Technologies Used
+## 👤 Author
 
-- **NestJS** — Modern Node.js framework
-- **TypeORM** — ORM for MySQL
-- **MySQL 8.0** — Relational database
-- **Docker** — Containerization
-- **TypeScript** — Type-safe JavaScript
+**Lusungu Mhango**
 
----
-
-## 📝 Notes
-
-- `synchronize: true` is enabled in development (auto-creates tables). For production, use migrations and set `synchronize: false`.
-- The backend has built-in retry logic for database connections during startup.
-- All timestamps are stored as UTC.
-- Input validation is strict; refer to API docs for exact field constraints.
+* GitHub: [https://github.com/lusungu-skillset](https://github.com/lusungu-skillset)
+* Focus: Backend Development | DevOps | Geospatial Systems
 
 ---
 
 ## 📄 License
 
-School project — No external license.
+This project is a **personal portfolio project** intended for learning, experimentation, and demonstration purposes.
+
+---
+
+### ✅ Key Takeaway
+
+> This project demonstrates **real-world backend engineering** using **spatial databases** and **map-based visualization**.

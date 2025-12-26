@@ -59,5 +59,9 @@ pipeline {
         always {
             cleanWs()
         }
+        failure {
+            echo 'Build failed! Please check the Jenkins logs for details.'
+        
+        }
     }
 }

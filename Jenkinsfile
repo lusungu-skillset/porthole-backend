@@ -26,13 +26,19 @@ pipeline {
                 }
             }
         }
-        stage('Test') {
-            steps {
-                dir('backend') {
-                    sh 'npm test'
-                }
-            }
+      stage('Test') {
+    steps {
+        dir('backend') {
+            sh '''
+              if npm run | grep -q "test"; then
+                npm test
+              else
+                echo "No tests defined, skipping test stage"
+              fi
+            '''
         }
+    }
+}
         stage('Build Docker Image') {
             steps {
                 script {

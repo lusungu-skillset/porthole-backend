@@ -590,3 +590,32 @@ Invoke-WebRequest -Uri "http://localhost:3005/potholes" -Method GET
 ## 📄 License
 
 School project — No external license.
+
+## CI/CD with Jenkins
+
+This project uses a Jenkins pipeline for automated testing, building, and deployment to production.
+
+### Jenkins Pipeline Overview
+- **Test:** Runs `npm test` in the `backend` folder.
+- **Build:** Builds a Docker image for the backend.
+- **Push:** Pushes the Docker image to Docker Hub.
+- **Deploy:** Deploys the app direct to to the deployment server
+
+### Requirements
+- Jenkins server with Docker installed
+- Jenkins agent with access to Docker
+- Jenkins credentials (ID: `dockerhub-credentials`) for Docker Hub
+- Docker Hub repository: `lusunguskillset/porthole-backend`
+
+### Setup Steps
+1. Place the `Jenkinsfile` in the project root.
+2. Configure Jenkins pipeline job to use this repository.
+3. Add Docker Hub credentials to Jenkins (ID: `dockerhub-credentials`).
+4. (Optional) Customize the `Deploy to Production` stage in the Jenkinsfile for your environment.
+
+### Environment Variables
+- `DOCKER_IMAGE`: Docker image name (default: `lusunguskillset/porthole-backend`)
+- `DOCKER_TAG`: Docker image tag (default: `latest`)
+
+### Example Jenkinsfile
+See the `Jenkinsfile` in the project root for the full pipeline definition.

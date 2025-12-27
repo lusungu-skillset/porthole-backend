@@ -54,8 +54,12 @@ pipeline {
                 }
             }
         }
-      {/**
-      I have reserved this space for deployment and production**/}
+        // stage('Deploy to Production') {
+        //     steps {
+        //         //deployment steps here, e.g., SSH to server and pull new image, restart container, etc.
+        //         echo 'Deploying to production...'
+        //     }
+        // }
     }
     post {
         always {

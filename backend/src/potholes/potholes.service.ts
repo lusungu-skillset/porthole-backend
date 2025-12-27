@@ -1,3 +1,4 @@
+ 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -18,8 +19,6 @@ export class PotholesService {
     private readonly reverseGeocode: ReverseGeocodeService
   ) {}
 
-  // Ensure spatial GIST index exists for performance on spatial queries.
-  // This runs once when the service is instantiated.
   async ensureSpatialIndex() {
     try {
       await this.dataSource.query(`
@@ -35,7 +34,6 @@ export class PotholesService {
         $$;
       `);
     } catch (err) {
-      // non-fatal: index creation failures should not break app startup
       console.warn('Could not ensure spatial index:', (err as any)?.message ?? err);
     }
   }
@@ -55,6 +53,15 @@ export class PotholesService {
     entry.roadName = dto.roadName;
     entry.district = dto.district;
 
+    try {
+      const location = await this.reverseGeocode.getFullLocation(entry.latitude, entry.longitude);
+      if (location) {
+        entry.location = location;
+      }
+    } catch (err) {
+      console.warn('Failed to retrieve full location:', err);
+    }
+
     let saved: Pothole;
     try {
       saved = await this.repo.save(entry);
@@ -63,7 +70,6 @@ export class PotholesService {
       throw err;
     }
 
-    // 🔹 HYBRID PART: resolve road name via reverse geocoding API if not provided
     if (!saved.roadName) {
       const road = await this.reverseGeocode.getRoadName(
         saved.latitude,
@@ -76,7 +82,6 @@ export class PotholesService {
       }
     }
 
-    // 🔹 Auto-populate district if not provided
     if (!saved.district) {
       const district = await this.reverseGeocode.getDistrict(
         saved.latitude,
@@ -88,17 +93,15 @@ export class PotholesService {
       }
     }
 
-    // Save updated fields if either road or district was populated
     if (saved.roadName || saved.district) {
       try {
         await this.repo.save(saved);
       } catch (err) {
         console.warn('Failed to update road/district after reverse geocoding:', err && (err as any).message ? (err as any).message : err);
-        // non-fatal: continue even if update fails
+      
       }
     }
 
-    // set PostGIS geometry. If frontend provided GeoJSON `geometry`, use it.
     try {
       if (dto.geometry) {
         await this.dataSource.query(
@@ -112,7 +115,6 @@ export class PotholesService {
         );
       }
 
-      // save any uploaded photos (if provided on create endpoint)
       if (files && files.length) {
         for (const file of files) {
           const photo = this.photoRepo.create({
@@ -125,11 +127,9 @@ export class PotholesService {
         }
       }
 
-      // fetch the reloaded pothole including photos
       const reloaded = (await this.repo.findOne({ where: { id: saved.id }, relations: ['photos'] })) as Pothole & Record<string, any> | null;
       const result = reloaded ?? saved;
 
-      // If a context geometry was provided, compute closest point and distance
       if (dto.contextGeometry) {
         const res = await this.dataSource.query(
           `SELECT
@@ -152,42 +152,47 @@ export class PotholesService {
   }
 
   async findAll(): Promise<Pothole[]> {
-    // return entries and include GeoJSON representation of the geometry
     const rows = await this.dataSource.query(
-      `SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson
+      `SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson, p.location
        FROM potholes p
        ORDER BY p.reported_at DESC`
     );
     return rows.map((r: any) => ({
       ...r,
       geom: r.geom_geojson ? JSON.parse(r.geom_geojson) : null,
+      location: r.location ?? null,
     }));
   }
 
-  // Find potholes within a GeoJSON polygon (or geometry). Returns features
-  // where ST_Intersects(p.geom, provided_geometry) is true.
   async findWithin(geojson: Record<string, any>): Promise<any[]> {
     const rows = await this.dataSource.query(
-      `SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson
+      `SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson, p.location
        FROM potholes p
        WHERE ST_Intersects(p.geom, ST_SetSRID(ST_GeomFromGeoJSON($1),4326))
        ORDER BY p.reported_at DESC`,
       [JSON.stringify(geojson)]
     );
-    return rows.map((r: any) => ({ ...r, geom: r.geom_geojson ? JSON.parse(r.geom_geojson) : null }));
+    return rows.map((r: any) => ({
+      ...r,
+      geom: r.geom_geojson ? JSON.parse(r.geom_geojson) : null,
+      location: r.location ?? null,
+    }));
   }
 
-  // Find potholes near a given point (lat, lon) within radius in meters.
   async findNearby(latitude: number, longitude: number, radiusMeters = 100): Promise<any[]> {
     const rows = await this.dataSource.query(
-      `SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson,
+      `SELECT p.*, ST_AsGeoJSON(p.geom) AS geom_geojson, p.location,
          ST_Distance(p.geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography) AS distance_m
        FROM potholes p
        WHERE ST_DWithin(p.geom::geography, ST_SetSRID(ST_MakePoint($1,$2),4326)::geography, $3)
        ORDER BY distance_m ASC`,
       [longitude, latitude, radiusMeters]
     );
-    return rows.map((r: any) => ({ ...r, geom: r.geom_geojson ? JSON.parse(r.geom_geojson) : null }));
+    return rows.map((r: any) => ({
+      ...r,
+      geom: r.geom_geojson ? JSON.parse(r.geom_geojson) : null,
+      location: r.location ?? null,
+    }));
   }
 
   async update(id: number, dto: UpdatePotholeDto): Promise<Pothole> {
@@ -199,6 +204,11 @@ export class PotholesService {
     if (dto.status) pothole.status = dto.status;
     if (dto.description) pothole.description = dto.description;
     return this.repo.save(pothole);
+  }
+
+   async getReportedDates(): Promise<Date[]> {
+    const potholes = await this.repo.find({ select: ['reportedAt'] });
+    return potholes.map(p => p.reportedAt);
   }
 
   async addPhoto(potholeId: number, file: Express.Multer.File) {

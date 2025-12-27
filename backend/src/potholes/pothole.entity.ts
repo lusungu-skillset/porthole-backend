@@ -19,7 +19,7 @@ export class Pothole {
   description!: string;
 
   @Column({ type: 'varchar', length: 120, nullable: true })
-  // Stored in DB as `road_name` (snake_case)
+  
   @Column({ name: 'road_name', type: 'varchar', length: 120, nullable: true })
   roadName?: string;
 
@@ -28,6 +28,9 @@ export class Pothole {
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   district?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  location?: string; 
 
   @Column({ type: 'varchar', length: 10, default: 'LOW' })
   severity!: 'LOW' | 'MEDIUM' | 'HIGH';

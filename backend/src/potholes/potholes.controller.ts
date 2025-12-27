@@ -1,3 +1,4 @@
+
 import { Body, Controller, Get, Param, Post, Put, ParseIntPipe, UseGuards, UploadedFile, UseInterceptors, Res, UploadedFiles, BadRequestException } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -11,27 +12,21 @@ export class PotholesController {
   constructor(private readonly service: PotholesService) {}
 
   @Post()
-  // Create a pothole report. Accepts JSON or multipart/form-data with up to
-  // 3 `photos` files. The frontend may send either `latitude`/`longitude` or a
-  // GeoJSON `geometry`. Optionally a `contextGeometry` GeoJSON may be provided
-  // and the backend will compute `ST_ClosestPoint` and `ST_Distance`.
   @UseInterceptors(FileFieldsInterceptor([{ name: 'photos', maxCount: 3 }]))
   async create(@Body() body: any, @UploadedFiles() files: { photos?: Express.Multer.File[] }) {
     console.log('PotholesController.create: received request');
     console.log('Raw body:', body);
     console.log('Uploaded files:', files && files.photos ? files.photos.map(f => f.originalname) : files);
-    // Accept either direct JSON (application/json) or multipart form with a
-    // `payload` field (stringified JSON) — common when using curl/git-bash.
+  
     let payload: any = body;
     if (body && typeof body.payload === 'string') {
       try {
         payload = JSON.parse(body.payload);
       } catch (e) {
-        // fall through — will be validated below
+       
       }
     }
 
-    // Coerce types (form fields often arrive as strings)
     const latitude = payload.latitude !== undefined ? Number(payload.latitude) : undefined;
     const longitude = payload.longitude !== undefined ? Number(payload.longitude) : undefined;
     const description = payload.description;
@@ -42,7 +37,7 @@ export class PotholesController {
     const geometry = payload.geometry;
     const contextGeometry = payload.contextGeometry;
 
-    // Basic validation to provide useful errors for multipart forms
+   
     const errors: string[] = [];
     if (latitude === undefined || Number.isNaN(latitude)) {
       errors.push('latitude must be a number conforming to the specified constraints');
@@ -85,13 +80,11 @@ export class PotholesController {
     }
   }
 
-  // Query potholes within a GeoJSON geometry (e.g., polygon).
   @Post('within')
   async within(@Body() body: { geometry: Record<string, any> }) {
     return this.service.findWithin(body.geometry);
   }
 
-  // Find potholes near a lat/lon within `radiusMeters` (default 100m).
   @Post('nearby')
   async nearby(@Body() body: { latitude: number; longitude: number; radiusMeters?: number }) {
     return this.service.findNearby(body.latitude, body.longitude, body.radiusMeters ?? 100);
@@ -106,6 +99,11 @@ export class PotholesController {
   @Get()
   async findAll() {
     return this.service.findAll();
+  }
+
+  @Get('reported-dates')
+  async getReportedDates() {
+    return this.service.getReportedDates();
   }
 
   @Put(':id')

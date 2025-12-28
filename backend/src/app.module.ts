@@ -19,7 +19,7 @@ const DB_PORT = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432;
       password: process.env.DB_PASS || 'pothole',
       database: process.env.DB_NAME || 'pothole_db',
       entities: [Pothole, PotholePhoto, Admin],
-      synchronize: process.env.TYPEORM_SYNC === 'true' // Auto-sync schema only when explicitly enabled
+      synchronize: process.env.TYPEORM_SYNC === 'true'
     }),
     PotholesModule,
     AuthModule,
